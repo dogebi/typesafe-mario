@@ -8,3 +8,4 @@ artifacts/
 .env
 *.nes
 *.rom
+.DS_Store

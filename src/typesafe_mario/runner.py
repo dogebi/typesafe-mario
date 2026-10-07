@@ -63,6 +63,11 @@ def _record_decision(
         "jump_needed_probability": decision.jump_needed_probability,
         "danger_score": decision.danger_score,
         "latency_ms": decision.latency_ms,
+        # Who picked the action: "laya" / "stall_break" / "fallback" / "heuristic"
+        # / "typesafe". Without this the log cannot tell a model answer from a
+        # code-side override, and `laya_choice` keeps the model's own answer.
+        "source": decision.source,
+        "laya_choice": decision.laya_choice,
         "reward": reward,
         "terminated": bool(terminated),
         "truncated": bool(truncated),

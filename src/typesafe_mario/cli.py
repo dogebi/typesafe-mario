@@ -5,6 +5,8 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from .laya import DEFAULT_URL as LAYA_DEFAULT_URL
+from .laya import PRIOR_T, STALL_BREAK_THRESHOLD, LayaPolicy
 from .policy import HeuristicPolicy, TypeSafePolicy
 from .runner import run_episode
 from .state import MarioStateParser
@@ -69,7 +71,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     play.add_argument("--max-decisions", type=int, default=2000)
     play.add_argument("--seed", type=int, default=123)
-    play.add_argument("--policy", choices=("typesafe", "heuristic"), default="typesafe")
+    play.add_argument("--policy", choices=("typesafe", "laya", "heuristic"), default="typesafe")
+    play.add_argument(
+        "--laya-url",
+        default=LAYA_DEFAULT_URL,
+        help="Laya sidecar base URL (ai/laya_mlx_server.py in the tetris project)",
+    )
+    play.add_argument(
+        "--laya-prior-t",
+        type=float,
+        default=None,
+        help="Temperature of the code-side action prior mixed with Laya's "
+        "probabilities; 0 disables it and leaves Laya alone (default LAYA_PRIOR_T or 0.4)",
+    )
+    play.add_argument(
+        "--laya-stall-break",
+        action="store_true",
+        help="On a stall, bypass Laya with a scripted back-off/runway/jump cycle "
+        "(runway is required for tall pipes; Laya holds a standstill jump instead). "
+        "Forced decisions are logged with source=stall_break.",
+    )
+    play.add_argument(
+        "--laya-stall-threshold",
+        type=int,
+        default=STALL_BREAK_THRESHOLD,
+        help="Stalled decisions before --laya-stall-break takes over "
+        f"(default LAYA_STALL_THRESHOLD or {STALL_BREAK_THRESHOLD})",
+    )
     play.add_argument(
         "--display",
         choices=("dashboard", "game", "none"),
@@ -90,7 +118,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "state-demo":
         return state_demo()
     if args.command == "play":
-        policy = TypeSafePolicy() if args.policy == "typesafe" else HeuristicPolicy()
+        if args.policy == "typesafe":
+            policy = TypeSafePolicy()
+        elif args.policy == "laya":
+            policy = LayaPolicy(
+                args.laya_url,
+                prior_t=args.laya_prior_t if args.laya_prior_t is not None else PRIOR_T,
+                stall_break=args.laya_stall_break,
+                stall_threshold=args.laya_stall_threshold,
+            )
+        else:
+            policy = HeuristicPolicy()
         log_path = run_episode(
             env_id=args.env,
             policy=policy,

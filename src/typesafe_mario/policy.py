@@ -17,6 +17,14 @@ class Decision:
     latency_ms: float
     jump_needed_probability: float | None = None
     danger_score: float | None = None
+    # Who actually picked `action`. A run log that only records the action cannot
+    # tell a model answer from a code-side override, so every policy labels its
+    # decisions: "laya" (the model's pick, possibly re-ranked by the prior),
+    # "stall_break" (scripted override after a stall), "fallback" (Laya named no
+    # usable action), "heuristic", "typesafe", or plain "policy".
+    source: str = "policy"
+    # What the model itself answered, kept even when something overrides it.
+    laya_choice: str | None = None
 
 
 class Policy(Protocol):
@@ -127,6 +135,7 @@ class TypeSafePolicy:
             latency_ms=latency_ms,
             jump_needed_probability=float(jump_answer.noul),
             danger_score=float(danger_answer.score),
+            source="typesafe",
         )
 
 
@@ -143,4 +152,5 @@ class HeuristicPolicy:
             confidence=1.0,
             probabilities={candidate.value: float(candidate == action) for candidate in actions},
             latency_ms=0.0,
+            source="heuristic",
         )
